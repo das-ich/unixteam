@@ -1,5 +1,4 @@
 #!/bin/bash
-DATE=`date`
 
 # Colors
 RED='\033[0;31m'
@@ -23,11 +22,47 @@ echo -e "${YELLOW}Status of landscape-client.service:${NC}"
 systemctl is-active landscape-client.service
 echo
 
-# 3. Last 2 'exchange completed' entries in Landscape log
-echo "today is $DATE"
-echo -e "${CYAN}Last 2 'exchange completed' entries in Landscape log:${NC}"
+# 3. Landscape Exchange Check
+echo -e "${CYAN}Landscape Client Synchronization Check:${NC}"
+current_time=$(date)
+echo "Current time: $current_time"
+echo
+
 if [ -f /var/log/landscape/broker.log ]; then
-    grep -i "exchange completed" /var/log/landscape/broker.log | tail -2
+    # Get the last "exchange completed" line
+    last_line=$(grep -i "exchange completed" /var/log/landscape/broker.log | tail -1)
+    
+    if [ -n "$last_line" ]; then
+        echo "Last 'exchange completed' entry:"
+        echo "  $last_line"
+        echo
+
+        # Try to extract timestamp from the log line
+        # Landscape log format example: 2026-01-20 14:35:22,123 [INFO] ...
+        if [[ $last_line =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2} ]]; then
+            log_timestamp="${BASH_REMATCH[0]}"
+            # Convert to seconds since epoch
+            log_epoch=$(date -d "$log_timestamp" +%s 2>/dev/null)
+            current_epoch=$(date +%s)
+
+            if [ -n "$log_epoch" ] && [ "$log_epoch" -le "$current_epoch" ]; then
+                diff_seconds=$((current_epoch - log_epoch))
+                diff_minutes=$((diff_seconds / 60))
+
+                if [ "$diff_minutes" -le 30 ]; then
+                    echo -e "${GREEN}✅ Landscape synchronization is working (last exchange ${diff_minutes} minute(s) ago).${NC}"
+                else
+                    echo -e "${RED}⚠️ Landscape synchronization may be stale (last exchange ${diff_minutes} minute(s) ago).${NC}"
+                fi
+            else
+                echo -e "${YELLOW}⚠️ Could not parse timestamp from log entry.${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️ Log entry does not contain a recognizable timestamp.${NC}"
+        fi
+    else
+        echo -e "${RED}No 'exchange completed' entries found in the log.${NC}"
+    fi
 else
     echo -e "${RED}Log file /var/log/landscape/broker.log not found.${NC}"
 fi
@@ -44,7 +79,6 @@ echo
 
 # 5. CrowdStrike CID
 echo -e "${MAGENTA}CrowdStrike CID:${NC}"
-# Try to run falconctl via sudo; if it fails with "command not found", handle it
 if output=$(sudo /opt/CrowdStrike/falconctl -g --cid 2>&1); then
     echo "$output"
 else
@@ -52,7 +86,6 @@ else
     if [[ "$output" == *"No such file or directory"* ]] || [[ "$output" == *"not found"* ]]; then
         echo -e "${RED}falconctl not found in /opt/CrowdStrike/. CrowdStrike may not be installed.${NC}"
     else
-        # Some other error (e.g. no CID set, but binary exists)
         echo "$output"
     fi
 fi
