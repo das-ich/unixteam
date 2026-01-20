@@ -1,4 +1,5 @@
 #!/bin/bash
+DATE=`date`
 
 # Colors
 RED='\033[0;31m'
@@ -23,6 +24,7 @@ systemctl is-active landscape-client.service
 echo
 
 # 3. Last 2 'exchange completed' entries in Landscape log
+echo "today is $DATE"
 echo -e "${CYAN}Last 2 'exchange completed' entries in Landscape log:${NC}"
 if [ -f /var/log/landscape/broker.log ]; then
     grep -i "exchange completed" /var/log/landscape/broker.log | tail -2
