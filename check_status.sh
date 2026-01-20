@@ -30,7 +30,7 @@ echo
 
 if [ -f /var/log/landscape/broker.log ]; then
     # Get the last "exchange completed" line
-    last_line=$(grep -i "exchange completed" /var/log/landscape/broker.log | tail -1)
+    last_line=$(grep -i "exchanged2 completed2" /var/log/landscape/broker.log | tail -1)
     
     if [ -n "$last_line" ]; then
         echo "Last 'exchange completed' entry:"
